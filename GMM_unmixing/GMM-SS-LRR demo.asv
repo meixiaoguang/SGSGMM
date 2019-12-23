@@ -1,0 +1,85 @@
+function [ output_args ] = test_gmm_exMei( input_args )
+%TEST_GMM_HU_EX Summary of this function goes here
+%   Detailed explanation goes here
+close all;
+clc;
+dataset = ('Synthenic_new.mat');
+is_real_dataset=0;
+[endmembers,I,Y,R_gt,A_gt,names] = prepare_supervised_unmixing(dataset);
+[rows,cols,B] = size(I);
+I_org=I;
+D = 0.01^2 * eye(B);
+options.beta1 =1;
+options.beta2 =1;
+options.beta3=1;
+options.show_fig = 1;
+options.names = names;
+options.D = D;
+options.project_mode = 'image';
+options.convergence_thresh = 0.0001;
+
+% disp('原始结果');
+% options.beta1 =0.1;
+% options.beta2 =0.1;
+% options.beta3=0.1;
+% [A,R,w_jk,mu_jk,sigma_jk,extra] = gmm_hu_ex(I, endmembers, options);
+% E = gmm_hu_endmember(I,A,D,w_jk,mu_jk,sigma_jk);
+% [rows,cols,B] = size(I);
+% A_gt=reshape(A_gt,[rows*cols,size(w_jk,2)]);
+% mdiff(A,A_gt);
+% show_abundances(A,rows,cols);
+% replay_scatter_abund(extra.frames_scatter, extra.frames_abund);
+
+
+%% 
+disp('Entropy Rate Superpixel Segmentation');
+[M1, N1, C1] = size(I);
+p1 = 1; % number of principle components
+[X_pca] = pca(reshape(Y, M1*N1, C1), p1);
+img = im2uint8(mat2gray(reshape(X_pca', M1, N1, p1)));
+
+segnum = 4; 
+labels = mex_ers(double(img), segnum);
+%grey_img = im2uint8(mat2gray(Y(:,:,1)));
+
+
+
+figure;
+ imshow(img,[]);
+[height width] = size(img);
+ [bmap] = seg2bmap(labels,width,height);
+ bmapOnImg = img;
+ idx = find(bmap>0);
+ timg = img;
+ timg(idx) = 255;
+bmapOnImg(:,:,2) = timg;
+bmapOnImg(:,:,1) = img;
+bmapOnImg(:,:,3) = img;
+ 
+figure;
+imshow(bmapOnImg,[]);
+Results_segment = seg_im_class(I, labels);
+Num=size(Results_segment.Y,2);
+A_segment=cell(1,4);
+ E_segment=cell(1,4);
+ %% 
+for i=1:Num 
+    options.beta1=0.1;    
+    options.beta2=0.1;  
+    options.beta3=0.1; 
+    I_temp = Results_segment.Y{1,i};
+    num_segment=i;
+    [A_temp,R_temp,w_jk,mu_jk,sigma_jk,extra_temp] = gmm_hu_ex(I_temp, endmembers, options);
+ %  A(Results_segment.index{i},:) = A_temp;
+%     [abs_err(i),rel_err(i)]=  mdiff(A_temp,A_gt(Results_segment.index{i},:));
+%    E = gmm_hu_endmember(I_temp,A_temp,D,w_jk_temp,mu_jk_temp,sigma_jk_temp);
+A(Results_segment.index{i},:)=A_temp; 
+end
+         A_error=calc_abundance_error(A_gt,A,is_real_dataset);
+          for i=1:M
+         error_all(i)=calc_abundance_error(A_gt(:,i),A(:,i),is_real_dataset);
+          end
+         show_abundances(A,rows,cols,'',1,M);
+
+
+end
